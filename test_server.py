@@ -17,11 +17,21 @@ import tempfile  # For creating temporary files for image processing
 import keyboard  # For detecting ESC key press to terminate the script
 import pandas as pd  # For creating and updating Excel files
 from datetime import datetime  # For timestamping detection events
+import mlflow
+from mlflow import MlflowClient
 import time
 
 # Add YOLOv5 directory to the system path to import custom functions
 yolov5_path = "../yolov5_farwest"  # Adjust the path as necessary
 sys.path.append(yolov5_path)
+
+
+# we will probably want to load these from a local file and not
+# push this type of information to the github
+client = MlflowClient()
+rmodel_name = "REGISTEREDMODELNAME"                        # replace with registered model for deployment
+mlflow.set_tracking_uri('http://SERVERIP:MLFLOWPORT')      # replace with server ip
+model = client.get_registered_model(rmodel_name)
 
 # Import custom detection functions from the YOLOv5 implementation
 from detect import run, load_model
