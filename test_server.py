@@ -189,40 +189,35 @@ def detect_and_display():
         if keyboard.is_pressed('esc'):  # Listen for ESC key to stop
             stop_threads = True
             break
-
-        local_frame = None
+        
         with frame_lock:
-            if current_frame is not None:
-                local_frame = current_frame.copy()
-                current_frame = None
-
-        if local_frame is not None:
-            
+            if current_frame is None:
+                continue
 
             # Run detection on the temporary image file
-            output = run(weights=weights, source=local_frame, iou_thres=iou_thres,
+            output = run(weights=weights, source=current_frame, iou_thres=iou_thres,
                          conf_thres=conf_thres, augment=augment, model=model, stride=stride,
                          names=names, pt=pt, debug_save=debug_save)
 
-            # Every 10 frames update the count
-            if frame_counter % 14 == 0:
-                for _, _, label in output:
-                    ct[label] += 1
+        # Every 10 frames update the count
+        if frame_counter % 14 == 0:
+            for _, _, label in output:
+                ct[label] += 1
 
-            # this will determine pickup order and return
-            # an ordered list of objects in output    
-            # output = pickup_order(output)
-            
-            end_time = time.time()
+        # this will determine pickup order and return
+        # an ordered list of objects in output    
+        # output = pickup_order(output)
+        
+        end_time = time.time()
 
-            # Calculate and accumulate the duration
-            duration = end_time - start_time
-            total_duration += duration
-            frame_counter += 1            
-            
-            # print(f"Received response for frame {frame_counter}: ", response_msg)
-            print(f"Duration for this frame: {duration:.3f} seconds")
-            # print ("==================================")
+        # Calculate and accumulate the duration
+        duration = end_time - start_time
+        total_duration += duration
+        frame_counter += 1            
+        
+        # print(f"Received response for frame {frame_counter}: ", response_msg)
+        print(f"Duration for this frame: {duration:.3f} seconds")
+        # print ("==================================")
 
 
 
