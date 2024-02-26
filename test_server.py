@@ -20,6 +20,7 @@ from datetime import datetime  # For timestamping detection events
 from math import sqrt
 import argparse
 import time
+import pandas as pd
 
 # Add YOLOv5 directory to the system path to import custom functions
 yolov5_path = "../yolov5_farwest"  # Adjust the path as necessary
@@ -179,6 +180,80 @@ def pickup_order(output: list) -> list:
     # return sorted by ymin
     return sorted(boxes, key = lambda b: b[1], reverse=False)
 
+def swap_occlusions (boxes: list, confidences: list) -> None:
+    """
+    Swaps the order of the items that are overlapping.
+    Overlaps with far enough distance are ignored. 
+    Columns for the DataFrame input: xmin, ymin, xmax, ymax, confidence, class, name
+                                     float64, float64, float64, float64, float64, int64, object (string)
+    frame: the opencv frame object
+    @param results: a list of bounding_boxes (pandas Dataframe). Each row is a box.
+    """
+
+    for i, box_a in enumerate(boxes):
+        for j, box_b in enumerate(boxes):
+            # ignore boxes we don't need to calculate
+            # if j is less than or equal to i, they've already been compared
+            if j <= i:
+                continue
+
+            if intersect(box_a, box_b):
+                centroid_a = centroid(box_a)
+                centroid_b = centroid(box_b)
+
+                # get diagonal of each box
+                diagonal_a = sqrt((box_a[2] - box_a[0])**2 + (box_a[3] - box_a[1])**2)
+                diagonal_b = sqrt((box_b[2] - box_b[0])**2 + (box_b[3] - box_b[1])**2)
+
+                # calculate area of each box
+                area_a = (box_a[2] - box_a[0]) * (box_a[3] - box_a[0])
+                area_b = (box_b[2] - box_b[0]) * (box_b[3] - box_b[0])
+
+                # calculate area difference ratio
+                size_diff_ratio = abs(area_a - area_b) / max(area_a, area_b)
+
+                # size threshold, for example, 0.5 means the size difference should not exceed 50%
+                size_threshold = 0.5
+
+                # sum of diagonal of each box, and take 1/8 of the sum, use it as the distance threshold
+                dist_threshold = (diagonal_a + diagonal_b)/8
+
+                # if the euclidean distance between the centroids is greater than the threshold, ignore
+                # if the size difference ratio is smaller than the threshold, ignore
+                centroid_distance = sqrt((centroid_b[0] - centroid_b[0])**2 + (centroid_a[1] - centroid_b[1])**2)
+                if (centroid_distance > dist_threshold) and (size_diff_ratio < size_threshold):
+                    continue
+                
+                # if the confidence of the first box is greater than the second, swap them
+                if confidences[i] > confidences[j]:
+                    boxes[i], boxes[j] =  boxes[j], boxes[i]
+                else:
+                    boxes[j], boxes[i] =  boxes[i], boxes[j]
+
+def pickup_order_v2 (output: list) -> list:
+    """Determines the optimal order to pick up objects in. Returns a sorted version of output.
+    Columns for the dataframe: xmin, ymin, xmax, ymax, confidence, class, name
+                               float64, float64, float64, float64, float64, int64, object (string)
+    frame: opencv frame the bounding boxes are from
+    @param results: a list of bounding boxes (as a pandas dataframe)
+    """
+
+    # extract boxes and confidences
+    boxes = list(map(lambda obj: obj[0], output))
+    confs = list(map(lambda obj: obj[1], output))
+
+    # calculate centroids
+    # needs to be checked again
+
+    # sort indices by which one has the largest y value
+    # this should give us the items that are the closest to the end of the line
+    sorted_boxes = sorted(boxes, key = lambda b: b[1], reverse=False)
+
+    # swap the order of the items that are overlapping
+    swap_occlusions(sorted_boxes, confs)
+
+    return sorted_boxes
+
 def detect_and_display():
     """
     Perform object detection on captured frames and display the results.
@@ -211,7 +286,7 @@ def detect_and_display():
 
             # this will determine pickup order and return
             # an ordered list of objects in output    
-            # output = pickup_order(output)
+            output = pickup_order(output)
             
             end_time = time.time()
 
